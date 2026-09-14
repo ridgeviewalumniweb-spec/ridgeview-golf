@@ -41,17 +41,33 @@ function syncRequiredFields(activePanel) {
 
 // ---- Tab switching ----
 function setTab(target) {
-  state.activeTab = target === "sponsor-form" ? "sponsor" : "play";
+  const isDonate = target === "donate";
+  state.activeTab = isDonate ? "donate" : (target === "sponsor-form" ? "sponsor" : "play");
   $("#tab-play").classList.toggle("active", target === "play");
   $("#tab-sponsor").classList.toggle("active", target === "sponsor-form");
+  $("#tab-donate").classList.toggle("active", isDonate);
   $("#panel-play").classList.toggle("active", target === "play");
   $("#panel-sponsor-form").classList.toggle("active", target === "sponsor-form");
+  $("#panel-donate").classList.toggle("active", isDonate);
   syncRequiredFields(target);
+
+  // Donations pay inline within their own panel (their own amount + PayPal button),
+  // so hide the shared "Amount Due" strip, the "Continue to Payment" submit button,
+  // and any leftover confirm/message panels while the Donate tab is active.
+  const outerSummary = $("#amount-value").closest(".amount-summary");
+  outerSummary.style.display = isDonate ? "none" : "";
+  $("#submit-btn").style.display = isDonate ? "none" : "";
+  if (isDonate) {
+    $("#confirm-panel").classList.remove("show");
+    $("#form-msg").classList.remove("show");
+    initDonatePaypal();
+  }
   updateAmount();
 }
 
 $("#tab-play").addEventListener("click", () => setTab("play"));
 $("#tab-sponsor").addEventListener("click", () => setTab("sponsor-form"));
+$("#tab-donate").addEventListener("click", () => setTab("donate"));
 
 // ---- Player slots (optional extra players) ----
 function renderPlayerSlots() {
@@ -268,10 +284,133 @@ async function renderPaypalButtons(registrationId, amount, categoryLabel) {
   }).render("#paypal-button-container");
 }
 
+// ---- Donate to the Alumni Association ----
+// A deliberately low-friction path: the donor just picks (or types) an amount and
+// pays with PayPal — no registration row is saved and no form is submitted. Each
+// gift's PayPal order carries a custom_id that starts with "DONATION-", which the
+// backend recognizes: it logs the gift to a "Donations" tab and, importantly, does
+// NOT treat it as an unmatched registration (which would email the coordinator on
+// every donation). Full donor details are always visible in PayPal itself.
+let donateSelectedAmount = 0;
+let donatePaypalRendered = false;
+
+function donationAmount() { return donateSelectedAmount; }
+
+function makeDonationId() {
+  return "DONATION-" + Date.now().toString(36).toUpperCase() +
+    "-" + Math.random().toString(36).slice(2, 7).toUpperCase();
+}
+
+function updateDonateAmount() {
+  const v = donationAmount();
+  $("#donate-amount-value").textContent = v ? `$${v.toLocaleString()}` : "$0";
+  const ok = v >= 1;
+  // Only reveal the PayPal button once a valid amount is chosen.
+  $("#donate-paypal-container").style.display = ok && donatePaypalRendered ? "block" : "none";
+  const hint = $("#donate-hint");
+  if (!ok) {
+    hint.textContent = "Choose an amount above to continue to PayPal.";
+    hint.style.display = "block";
+  } else if (donatePaypalRendered) {
+    hint.style.display = "none";
+  }
+}
+
+$$(".donate-chip").forEach((chip) => {
+  chip.addEventListener("click", () => {
+    const isOther = chip.id === "donate-other-btn";
+    $$(".donate-chip").forEach((c) => c.classList.toggle("active", c === chip));
+    if (isOther) {
+      $("#donate-custom-field").hidden = false;
+      const input = $("#donate-custom");
+      input.focus();
+      donateSelectedAmount = Math.max(0, Math.floor(Number(input.value) || 0));
+    } else {
+      $("#donate-custom-field").hidden = true;
+      donateSelectedAmount = Number(chip.dataset.amount) || 0;
+    }
+    updateDonateAmount();
+  });
+});
+
+$("#donate-custom").addEventListener("input", () => {
+  donateSelectedAmount = Math.max(0, Math.floor(Number($("#donate-custom").value) || 0));
+  updateDonateAmount();
+});
+
+// Renders the donation PayPal button once, the first time the Donate tab is opened.
+// createOrder reads the amount live at click time, so the single rendered button
+// always uses whatever the donor has currently selected.
+async function initDonatePaypal() {
+  if (donatePaypalRendered) return;
+
+  const paymentConfigured = CONFIG.PAYPAL_CLIENT_ID && !CONFIG.PAYPAL_CLIENT_ID.startsWith("PASTE_");
+  if (!paymentConfigured) {
+    const hint = $("#donate-hint");
+    hint.textContent = "Online donations are being finalized. To give right now, contact Stan Dixon at (404) 210-1740 or stanldixon@gmail.com.";
+    hint.style.display = "block";
+    return;
+  }
+
+  let paypal;
+  try {
+    paypal = await loadPaypalSdk();
+  } catch (err) {
+    console.error("PayPal SDK load failed", err);
+    const hint = $("#donate-hint");
+    hint.textContent = "Payment is temporarily unavailable. Please try again shortly, or contact Stan Dixon at (404) 210-1740.";
+    hint.style.display = "block";
+    return;
+  }
+
+  donatePaypalRendered = true;
+  paypal.Buttons({
+    style: { layout: "vertical", color: "gold", shape: "rect", label: "pay" },
+    onClick: (data, actions) => {
+      if (donationAmount() < 1) {
+        const hint = $("#donate-hint");
+        hint.textContent = "Please choose or enter an amount of $1 or more first.";
+        hint.style.display = "block";
+        return actions.reject();
+      }
+      return actions.resolve();
+    },
+    createOrder: (data, actions) => actions.order.create({
+      purchase_units: [{
+        description: "Donation — Ridgeview Alumni Charitable Corporation",
+        custom_id: makeDonationId(),
+        amount: { currency_code: "USD", value: String(donationAmount()) },
+      }],
+    }),
+    onApprove: (data, actions) => actions.order.capture().then(() => {
+      $("#donate-amounts").style.display = "none";
+      $("#donate-custom-field").hidden = true;
+      $("#donate-paypal-container").style.display = "none";
+      $("#donate-hint").style.display = "none";
+      $("#donate-amount-value").closest(".amount-summary").style.display = "none";
+      const intro = document.querySelector("#panel-donate .donate-intro");
+      if (intro) intro.style.display = "none";
+      $("#donate-success").classList.add("show");
+    }),
+    onError: (err) => {
+      console.error("PayPal donation error", err);
+      const hint = $("#donate-hint");
+      hint.textContent = "Something went wrong with PayPal. Please try again, or contact Stan Dixon directly.";
+      hint.style.display = "block";
+    },
+  }).render("#donate-paypal-container");
+
+  updateDonateAmount();
+}
+
 // ---- Submit ----
 $("#reg-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const form = e.target;
+
+  // The Donate tab has no "Continue to Payment" step — it pays inline via its own
+  // PayPal button — so this shared submit handler should never act on it.
+  if (state.activeTab === "donate") return;
 
   if (!form.checkValidity()) {
     form.reportValidity();

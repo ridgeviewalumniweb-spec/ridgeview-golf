@@ -245,6 +245,7 @@
     <div class="reg-toggle">
       <button type="button" id="tab-play" class="active" data-target="play">Play a Round</button>
       <button type="button" id="tab-sponsor" data-target="sponsor-form">Become a Sponsor</button>
+      <button type="button" id="tab-donate" data-target="donate">Donate to the Alumni Association</button>
     </div>
 
     <form class="reg-form" id="reg-form" novalidate>
@@ -352,6 +353,43 @@
         <div class="field">
           <label for="sponsor-notes">Notes <span class="hint">&mdash; optional</span></label>
           <textarea id="sponsor-notes" name="notes" placeholder="Anything else we should know?"></textarea>
+        </div>
+      </div>
+
+      <!-- DONATE PANEL -->
+      <div class="form-panel" id="panel-donate">
+        <p class="donate-intro">Make a direct gift of any amount to the Ridgeview Alumni Charitable Corporation, a 501(c)(3) nonprofit. No ticket or team required &mdash; every dollar supports treatment and recovery.</p>
+        <div class="field">
+          <label>Choose an Amount</label>
+          <div class="donate-amounts" id="donate-amounts">
+            <button type="button" class="donate-chip" data-amount="25">$25</button>
+            <button type="button" class="donate-chip" data-amount="50">$50</button>
+            <button type="button" class="donate-chip" data-amount="100">$100</button>
+            <button type="button" class="donate-chip" data-amount="250">$250</button>
+            <button type="button" class="donate-chip" data-amount="500">$500</button>
+            <button type="button" class="donate-chip donate-chip-other" id="donate-other-btn">Other</button>
+          </div>
+        </div>
+        <div class="field" id="donate-custom-field" hidden>
+          <label for="donate-custom">Enter an Amount (USD)</label>
+          <div class="donate-custom-wrap">
+            <span class="donate-custom-prefix">$</span>
+            <input type="number" id="donate-custom" name="donateCustom" min="1" step="1" inputmode="decimal" placeholder="0">
+          </div>
+        </div>
+
+        <div class="donate-pay">
+          <div class="amount-summary">
+            <span>Your Gift</span>
+            <span class="amount-value" id="donate-amount-value">$0</span>
+          </div>
+          <div id="donate-paypal-container"></div>
+          <p class="pay-nudge" id="donate-hint">Choose an amount above to continue to PayPal.</p>
+          <div class="payment-success" id="donate-success">
+            <span class="payment-success-check">&#10084;&#65039;</span>
+            <span class="payment-success-title">Thank You!</span>
+            <span class="payment-success-sub">Your donation to the Ridgeview Alumni Charitable Corporation has been received. It makes a real difference.</span>
+          </div>
         </div>
       </div>
 
