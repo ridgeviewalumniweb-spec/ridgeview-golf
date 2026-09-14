@@ -76,10 +76,13 @@ function setGolferCount(registered, pending, max) {
   if (goalCurrentLabel) goalCurrentLabel.textContent = String(confirmed);
   if (goalConfirmedLabel) goalConfirmedLabel.textContent = String(confirmed);
   if (goalPendingLabel) goalPendingLabel.textContent = String(pend);
-  requestAnimationFrame(() => {
-    if (goalFill) goalFill.style.width = Math.round((confirmed / total) * 100) + "%";
-    if (goalFillPending) goalFillPending.style.width = Math.round((pendShown / total) * 100) + "%";
-  });
+  // Set the widths directly rather than inside requestAnimationFrame: rAF callbacks
+  // are paused while a tab is in the background, so a page that finishes loading in a
+  // background tab (opened via "open in new tab", etc.) would otherwise be left with
+  // an empty bar. The 0% starting width is already painted from CSS, so assigning the
+  // target width here still animates smoothly via the CSS width transition.
+  if (goalFill) goalFill.style.width = Math.round((confirmed / total) * 100) + "%";
+  if (goalFillPending) goalFillPending.style.width = Math.round((pendShown / total) * 100) + "%";
 }
 
 function fetchGolferCount(execUrl) {
