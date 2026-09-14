@@ -138,6 +138,19 @@ function showMsg(text, type) {
   el.className = `form-msg show ${type}`;
 }
 
+// Validates + normalizes a phone number to a single consistent format, so every new
+// row in the sheet looks the same — "(770) 555-1234". Accepts a 10-digit US number,
+// or 11 digits starting with 1 (country code). Returns null if it isn't a usable
+// number (too few/many digits, letters, junk) so the caller can reject it before
+// taking payment. Mirrors normalizePhone() in Code.gs (the server re-normalizes as a
+// backstop, since client-side checks can be bypassed).
+function normalizePhone(raw) {
+  let digits = String(raw || "").replace(/\D/g, "");
+  if (digits.length === 11 && digits.charAt(0) === "1") digits = digits.slice(1);
+  if (digits.length !== 10) return null;
+  return "(" + digits.slice(0, 3) + ") " + digits.slice(3, 6) + "-" + digits.slice(6);
+}
+
 // ---- Reliable save (works behind VPNs / proxies / script blockers) ----
 // A POST to an Apps Script /exec URL doesn't return its JSON directly — it 302-
 // redirects to a googleusercontent.com address that carries the reply. Plenty of
@@ -423,6 +436,18 @@ $("#reg-form").addEventListener("submit", async (e) => {
     return;
   }
 
+  // Validate + normalize the phone before doing anything else, so a bad number is
+  // caught before we save or take payment. Write the clean format back into the
+  // field so the person sees exactly what will be recorded.
+  const phoneField = state.activeTab === "play" ? $("#play-phone") : $("#sponsor-phone");
+  const normalizedPhone = normalizePhone(phoneField.value);
+  if (!normalizedPhone) {
+    showMsg("Please enter a valid 10-digit U.S. phone number, for example (770) 555-1234.", "error");
+    phoneField.focus();
+    return;
+  }
+  phoneField.value = normalizedPhone;
+
   const amount = currentAmount();
   const submitBtn = $("#submit-btn");
   submitBtn.disabled = true;
@@ -520,6 +545,17 @@ $("#reg-form").addEventListener("submit", async (e) => {
 // and surface the emailed-payment-link note. No backend call needed.
 $("#pay-later-btn").addEventListener("click", () => {
   $("#pay-later-note").classList.add("show");
+});
+
+// Tidy the phone into its final format when the person leaves the field (only once
+// it's a valid number), so they see the consistent format before submitting.
+["#play-phone", "#sponsor-phone"].forEach((sel) => {
+  const el = $(sel);
+  if (!el) return;
+  el.addEventListener("blur", () => {
+    const norm = normalizePhone(el.value);
+    if (norm) el.value = norm;
+  });
 });
 
 // ---- Init ----
