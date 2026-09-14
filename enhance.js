@@ -56,17 +56,30 @@ if (stickyCta && heroEl && registerEl) {
 // Uses JSONP so the browser can read it cross-origin without CORS headaches. If the
 // backend isn't configured yet, or the request fails, it simply stays at 0.
 const goalFill = document.getElementById("goal-fill");
+const goalFillPending = document.getElementById("goal-fill-pending");
 const goalCurrentLabel = document.getElementById("goal-current");
+const goalConfirmedLabel = document.getElementById("goal-confirmed");
+const goalPendingLabel = document.getElementById("goal-pending");
 
-function setGolferCount(registered, max) {
+// registered = confirmed/paid golfers (plus the manual base number); pending =
+// golfers who've signed up but haven't paid yet. The bar shows confirmed as a
+// solid gold segment and pending as a striped segment right after it. `pending`
+// may be undefined when talking to an older backend — treated as 0.
+function setGolferCount(registered, pending, max) {
   const total = max || 72;
-  const n = Math.max(0, Math.min(Number(registered) || 0, total));
-  if (goalCurrentLabel) goalCurrentLabel.textContent = String(n);
-  if (goalFill) {
-    requestAnimationFrame(() => {
-      goalFill.style.width = Math.round((n / total) * 100) + "%";
-    });
-  }
+  const confirmed = Math.max(0, Math.min(Number(registered) || 0, total));
+  const pend = Math.max(0, Number(pending) || 0);
+  // The striped pending segment only fills whatever room is left after confirmed,
+  // so the two together never overflow the 72-spot bar (the legend still shows the
+  // true pending count even if the bar is visually capped).
+  const pendShown = Math.min(pend, total - confirmed);
+  if (goalCurrentLabel) goalCurrentLabel.textContent = String(confirmed);
+  if (goalConfirmedLabel) goalConfirmedLabel.textContent = String(confirmed);
+  if (goalPendingLabel) goalPendingLabel.textContent = String(pend);
+  requestAnimationFrame(() => {
+    if (goalFill) goalFill.style.width = Math.round((confirmed / total) * 100) + "%";
+    if (goalFillPending) goalFillPending.style.width = Math.round((pendShown / total) * 100) + "%";
+  });
 }
 
 function fetchGolferCount(execUrl) {
@@ -90,9 +103,9 @@ if (goalFill) {
   const backendUrl = (typeof CONFIG !== "undefined" && CONFIG.APPS_SCRIPT_URL) || "";
   if (backendUrl && backendUrl.indexOf("PASTE_") === -1) {
     fetchGolferCount(backendUrl)
-      .then((data) => setGolferCount(data.registered, data.max))
-      .catch(() => setGolferCount(0, 72));
+      .then((data) => setGolferCount(data.registered, data.pending, data.max))
+      .catch(() => setGolferCount(0, 0, 72));
   } else {
-    setGolferCount(0, 72);
+    setGolferCount(0, 0, 72);
   }
 }

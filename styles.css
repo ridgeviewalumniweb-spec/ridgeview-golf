@@ -394,18 +394,60 @@ a { color: var(--fairway-deep); }
 }
 .goal-wrap .goal-label strong { color: var(--gold); font-family: 'Anton', sans-serif; font-size: 1.05rem; letter-spacing: 0.02em; }
 .goal-track {
+  display: flex;
   height: 14px;
   border-radius: 999px;
   background: rgba(255,255,255,0.18);
   overflow: hidden;
   border: 1px solid rgba(255,255,255,0.3);
 }
+/* Confirmed (paid) segment — solid gold. */
 .goal-fill {
+  flex: 0 0 auto;
   height: 100%;
   width: 0%;
-  border-radius: 999px;
   background: linear-gradient(90deg, var(--gold-deep), var(--gold));
   transition: width 1.4s cubic-bezier(.16,.84,.44,1);
+}
+/* Pending (signed up, not yet paid) segment — sits right after the confirmed
+   segment, striped so it reads as "in progress / not locked in yet". */
+.goal-fill-pending {
+  flex: 0 0 auto;
+  height: 100%;
+  width: 0%;
+  background: repeating-linear-gradient(45deg,
+    rgba(255,255,255,0.62) 0 6px,
+    rgba(255,255,255,0.30) 6px 12px);
+  transition: width 1.4s cubic-bezier(.16,.84,.44,1);
+}
+.goal-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin-top: 11px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: rgba(255,255,255,0.92);
+}
+.goal-legend-item { display: inline-flex; align-items: center; gap: 7px; }
+.goal-legend-item strong {
+  color: var(--gold);
+  font-family: 'Anton', sans-serif;
+  font-size: 0.98rem;
+  letter-spacing: 0.02em;
+}
+.goal-dot {
+  width: 13px; height: 13px;
+  border-radius: 4px;
+  display: inline-block;
+  border: 1px solid rgba(255,255,255,0.4);
+  flex: none;
+}
+.goal-dot-confirmed { background: linear-gradient(90deg, var(--gold-deep), var(--gold)); }
+.goal-dot-pending {
+  background: repeating-linear-gradient(45deg,
+    rgba(255,255,255,0.62) 0 4px,
+    rgba(255,255,255,0.30) 4px 8px);
 }
 
 .btn {
